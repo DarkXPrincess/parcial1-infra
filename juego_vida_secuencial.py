@@ -4,7 +4,7 @@ Juego de la Vida de Conway - VERSION SECUENCIAL (línea base)
 
 Uso:
     python juego_vida_secuencial.py                 -> abre la interfaz gráfica
-    python juego_vida_secuencial.py 
+    python juego_vida_secuencial.py --benchmark     -> mide tiempos sin interfaz
     python juego_vida_secuencial.py --filas 80 --columnas 120 --celda 8
 
 Decisiones de diseño (pensadas para que la versión paralela reutilice todo):
@@ -20,6 +20,7 @@ Decisiones de diseño (pensadas para que la versión paralela reutilice todo):
 """
 
 import argparse
+import csv
 import random
 import time
 
@@ -98,15 +99,32 @@ def contar_vivas(matriz):
 # Medición de rendimiento
 # ----------------------------------------------------------------------------
 
-def medir_tiempos(tamanos=(100, 500, 1000), generaciones=10):
-    """Mide cuánto tarda la versión secuencial en simular varias generaciones
-    para cada tamaño de tablero e imprime el resultado."""
+def benchmark(tamanos=(100, 500, 1000), generaciones=10, repeticiones=3,
+              archivo_csv="tiempos_secuencial.csv"):
+    """Mide el tiempo de la versión secuencial para varios tamaños.
+    Repite cada medición y reporta el promedio y el mínimo, porque una sola
+    corrida se ve afectada por lo que esté haciendo el sistema operativo."""
+    filas_csv = []
+    print(f"{'Tamaño':>12} {'Gen.':>5} {'Promedio (s)':>14} {'Mínimo (s)':>12}")
     for n in tamanos:
-        matriz = crear_matriz(n, n, semilla=42)  # mismo tablero siempre
-        inicio = time.perf_counter()
-        simular(matriz, generaciones)
-        fin = time.perf_counter()
-        print(f"{n}x{n}, {generaciones} generaciones: {fin - inicio:.4f} s")
+        tiempos = []
+        for r in range(repeticiones):
+            matriz = crear_matriz(n, n, semilla=42)  # mismo tablero siempre
+            inicio = time.perf_counter()
+            simular(matriz, generaciones)
+            tiempos.append(time.perf_counter() - inicio)
+        promedio = sum(tiempos) / len(tiempos)
+        minimo = min(tiempos)
+        print(f"{f'{n}x{n}':>12} {generaciones:>5} {promedio:>14.4f} {minimo:>12.4f}")
+        filas_csv.append([n, generaciones, repeticiones,
+                          round(promedio, 6), round(minimo, 6)])
+
+    with open(archivo_csv, "w", newline="") as f:
+        escritor = csv.writer(f)
+        escritor.writerow(["tamano", "generaciones", "repeticiones",
+                           "promedio_s", "minimo_s"])
+        escritor.writerows(filas_csv)
+    print(f"\nResultados guardados en {archivo_csv}")
 
 
 # ----------------------------------------------------------------------------
@@ -212,7 +230,7 @@ def abrir_interfaz(filas, columnas, tam_celda, densidad):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Juego de la Vida secuencial")
-    parser.add_argument("--medir_tiempos", action="store_true",
+    parser.add_argument("--benchmark", action="store_true",
                         help="mide tiempos sin abrir la interfaz")
     parser.add_argument("--filas", type=int, default=60)
     parser.add_argument("--columnas", type=int, default=100)
@@ -221,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("--densidad", type=float, default=0.25)
     args = parser.parse_args()
 
-    if args.medir_tiempos:
-        medir_tiempos()
+    if args.benchmark:
+        benchmark()
     else:
         abrir_interfaz(args.filas, args.columnas, args.celda, args.densidad)
