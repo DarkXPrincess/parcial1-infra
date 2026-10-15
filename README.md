@@ -10,7 +10,6 @@ Esta es la línea base secuencial del Juego de la Vida de Conway. Sirve como ref
 |---|---|
 | `juego_vida_secuencial.py` | Lógica del juego, interfaz gráfica y modo benchmark |
 | `tiempos_secuencial.csv` | Tiempos que genera el modo benchmark |
-| `informe_secuencial.tex` | Informe en LaTeX que explica el código |
 
 ## Requisitos
 
@@ -44,7 +43,6 @@ python juego_vida_secuencial.py --benchmark
 | `--filas` | 60 | Filas del tablero |
 | `--columnas` | 100 | Columnas del tablero |
 | `--celda` | 9 | Tamaño de cada celda en píxeles |
-| `--densidad` | 0.25 | Probabilidad de que una celda empiece viva |
 
 ### Controles de la interfaz
 
