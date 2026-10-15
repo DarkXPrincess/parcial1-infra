@@ -4,23 +4,18 @@ Juego de la Vida de Conway - VERSION SECUENCIAL (línea base)
 
 Uso:
     python juego_vida_secuencial.py                 -> abre la interfaz gráfica
-    python juego_vida_secuencial.py --benchmark     -> mide tiempos sin interfaz
     python juego_vida_secuencial.py --filas 80 --columnas 120 --celda 8
 
 Decisiones de diseño (pensadas para que la versión paralela reutilice todo):
   * La matriz es una lista de listas de enteros (1 = viva, 0 = muerta).
-    No se usa NumPy a propósito: queremos una base secuencial "pura" para que
-    la comparación con hilos/procesos sea justa.
   * El cálculo de una generación se separa en dos funciones:
       - contar_vecinos():  cuántos vecinos vivos tiene una celda.
       - calcular_filas():  calcula las filas [inicio, fin) de la siguiente
-        generación. La versión secuencial la llama con todas las filas;
-        la paralela solo tendrá que llamarla con rangos distintos por hilo.
-  * Los bordes se tratan como celdas muertas (el mundo no da la vuelta).
+        generación. La versión secuencial la llama con todas las filas
+  * Los bordes se tratan como celdas muertas.
 """
 
 import argparse
-import csv
 import random
 import time
 
@@ -31,8 +26,7 @@ import time
 
 def crear_matriz(filas, columnas, densidad=0.25, semilla=None):
     """Crea una matriz aleatoria. 'densidad' es la probabilidad de que una
-    celda empiece viva. Con una semilla fija el resultado es reproducible,
-    lo que permite comparar secuencial y paralelo sobre el mismo tablero."""
+    celda empiece viva. Con una semilla fija el resultado es reproducible"""
     rng = random.Random(semilla)
     return [[1 if rng.random() < densidad else 0 for _ in range(columnas)]
             for _ in range(filas)]
@@ -54,12 +48,8 @@ def contar_vecinos(matriz, i, j, filas, columnas):
 
 def calcular_filas(actual, nueva, inicio, fin):
     """Calcula las filas [inicio, fin) de la siguiente generación.
+    Lee de 'actual' y escribe SOLO en 'nueva'. """
 
-    Lee de 'actual' y escribe SOLO en 'nueva'. Esa separación es lo que evita
-    condiciones de carrera: nadie modifica el tablero que los demás están
-    leyendo. Cada rango de filas es independiente, así que es la unidad de
-    trabajo que se repartirá entre hilos más adelante.
-    """
     filas = len(actual)
     columnas = len(actual[0])
     for i in range(inicio, fin):
@@ -76,7 +66,7 @@ def calcular_filas(actual, nueva, inicio, fin):
 
 
 def siguiente_generacion(actual):
-    """Versión secuencial: una sola llamada que cubre todas las filas."""
+    """llamada que cubre todas las filas."""
     filas = len(actual)
     columnas = len(actual[0])
     nueva = [[0] * columnas for _ in range(filas)]
@@ -93,38 +83,6 @@ def simular(matriz, generaciones):
 
 def contar_vivas(matriz):
     return sum(sum(fila) for fila in matriz)
-
-
-# ----------------------------------------------------------------------------
-# Medición de rendimiento
-# ----------------------------------------------------------------------------
-
-def benchmark(tamanos=(100, 500, 1000), generaciones=10, repeticiones=3,
-              archivo_csv="tiempos_secuencial.csv"):
-    """Mide el tiempo de la versión secuencial para varios tamaños.
-    Repite cada medición y reporta el promedio y el mínimo, porque una sola
-    corrida se ve afectada por lo que esté haciendo el sistema operativo."""
-    filas_csv = []
-    print(f"{'Tamaño':>12} {'Gen.':>5} {'Promedio (s)':>14} {'Mínimo (s)':>12}")
-    for n in tamanos:
-        tiempos = []
-        for r in range(repeticiones):
-            matriz = crear_matriz(n, n, semilla=42)  # mismo tablero siempre
-            inicio = time.perf_counter()
-            simular(matriz, generaciones)
-            tiempos.append(time.perf_counter() - inicio)
-        promedio = sum(tiempos) / len(tiempos)
-        minimo = min(tiempos)
-        print(f"{f'{n}x{n}':>12} {generaciones:>5} {promedio:>14.4f} {minimo:>12.4f}")
-        filas_csv.append([n, generaciones, repeticiones,
-                          round(promedio, 6), round(minimo, 6)])
-
-    with open(archivo_csv, "w", newline="") as f:
-        escritor = csv.writer(f)
-        escritor.writerow(["tamano", "generaciones", "repeticiones",
-                           "promedio_s", "minimo_s"])
-        escritor.writerows(filas_csv)
-    print(f"\nResultados guardados en {archivo_csv}")
 
 
 # ----------------------------------------------------------------------------
@@ -230,8 +188,6 @@ def abrir_interfaz(filas, columnas, tam_celda, densidad):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Juego de la Vida secuencial")
-    parser.add_argument("--benchmark", action="store_true",
-                        help="mide tiempos sin abrir la interfaz")
     parser.add_argument("--filas", type=int, default=60)
     parser.add_argument("--columnas", type=int, default=100)
     parser.add_argument("--celda", type=int, default=9,
@@ -239,7 +195,4 @@ if __name__ == "__main__":
     parser.add_argument("--densidad", type=float, default=0.25)
     args = parser.parse_args()
 
-    if args.benchmark:
-        benchmark()
-    else:
-        abrir_interfaz(args.filas, args.columnas, args.celda, args.densidad)
+    abrir_interfaz(args.filas, args.columnas, args.celda, args.densidad)
